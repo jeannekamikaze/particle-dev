@@ -1,0 +1,80 @@
+#!/bin/sh
+
+#
+# Config
+#
+
+# See default-firmware/readme.txt before running the 'reset' command
+
+# Add any required paths
+#PATH=/additional/path:$PATH
+
+# Change this as appropriate
+MAKE="make PLATFORM=photon PARTICLE_DEVELOP=1"
+
+# Replace this with your device token
+TOKEN="123123123123"
+
+#
+# Main
+#
+
+SCRIPT=`realpath -s $0`
+SCRIPTPATH=`dirname $SCRIPT`
+DEFAULT_FIRMWARE=$SCRIPTPATH/default-firmware
+
+if [ $# -lt 1 ]; then
+    echo "Usage: particle <command>"
+    echo ""
+    echo "build  [app] [path=.] : compile code"
+    echo "load   [app] [path=.] : upload firmware to device"
+    echo "clean  [path=.]       : clean build"
+    echo "reset  [path=.]       : reset to default Tinker firmware"
+    echo "update [path=.]       : update system firmware"
+    echo "listen <event>        : listen for device events"
+    exit 0
+fi
+
+COMMAND=$1
+
+if [ $COMMAND == "build" ]; then
+    PROJECT_PATH=${3:-.}
+    if [ -z $2 ]; then
+        echo "Building $PROJECT_PATH"
+        cd $PROJECT_PATH/firmware/main && $MAKE
+    else
+        APP=$2
+        echo "Building $PROJECT_PATH ($APP)"
+        cd $PROJECT_PATH/firmware/main && $MAKE APP=$APP
+    fi
+elif [ $COMMAND == "load" ]; then
+    PROJECT_PATH=${3:-.}
+    if [ -z $2 ]; then
+        echo "Loading $PROJECT_PATH"
+        cd $PROJECT_PATH/firmware/main && $MAKE program-dfu
+    else
+        APP=$2
+        echo "Building $PROJECT_PATH ($APP)"
+        cd $PROJECT_PATH/firmware/main && $MAKE APP=$APP program-dfu
+    fi
+elif [ $COMMAND == "clean" ]; then
+    PROJECT_PATH=${2:-.}
+    echo "Cleaning $PROJECT_PATH"
+    cd $PROJECT_PATH/firmware/main && $MAKE clean
+elif [ $COMMAND == "reset" ]; then
+    PROJECT_PATH=${2:-.}
+    echo "Resetting firmware"
+    cd $DEFAULT_FIRMWARE && ./load.sh
+elif [ $COMMAND == "update" ]; then
+    PROJECT_PATH=${2:-.}
+    echo "Updating $PROJECT_PATH"
+    cd $PROJECT_PATH/firmware/modules && $MAKE clean all program-dfu
+elif [ $COMMAND == "listen" ]; then
+    if [ -z $2 ]; then
+        echo "You need to specify an event name."
+    else
+        event=$2
+        echo "Listening for event: $event"
+        curl -H "Authorization: Bearer $TOKEN" https://api.particle.io/v1/events/$event
+    fi
+fi
